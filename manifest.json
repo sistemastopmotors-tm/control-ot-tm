@@ -1,0 +1,15 @@
+{
+  "name": "Control OT - Top Motors",
+  "short_name": "Control OT",
+  "description": "Registro de inicio y fin de atención de Órdenes de Trabajo",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F7F8",
+  "theme_color": "#E4002B",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
