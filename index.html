@@ -421,7 +421,10 @@ function buscarFilaPorOT(ws, ot){
 function primeraFilaVacia(ws){
   for (let f = FILA_INICIO_DATOS; f <= FILA_FIN_DATOS; f++){
     const celda = ws[COL.NRO_OT + f];
-    if (!celda || String(celda.v).trim() === ''){
+    // Las filas "vacías" de la plantilla tienen una celda con formato pero
+    // sin valor (tipo 'z'), no una celda inexistente: por eso se revisa
+    // celda.v en vez de solo la existencia de la celda.
+    if (!celda || celda.v === undefined || celda.v === null || String(celda.v).trim() === ''){
       return f;
     }
   }
