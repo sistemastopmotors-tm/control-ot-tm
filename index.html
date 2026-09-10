@@ -59,7 +59,7 @@
   }
   .card h2{font-size:14px;margin:0 0 14px;color:var(--tm-gray);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
   label{display:block;font-size:13px;color:var(--tm-gray);margin:0 0 6px;font-weight:500;}
-  input[type=text],input[type=number],select{
+  input[type=text],input[type=number],input[type=datetime-local],select{
     width:100%;
     padding:12px 13px;
     border:1px solid var(--tm-border);
@@ -201,15 +201,19 @@
       <div id="bloque-registrar-inicio" class="hidden">
         <label for="sel-mec-inicio">Mecánico</label>
         <select id="sel-mec-inicio"></select>
+        <label for="dt-inicio">Fecha y hora de inicio</label>
+        <input type="datetime-local" id="dt-inicio">
         <button class="primary" id="btn-registrar-inicio">
-          <span id="spin-registrar-inicio" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
+          <span id="spin-registrar-inicio" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio
         </button>
       </div>
 
       <!-- Registrar fin (OT con inicio pero sin fin) -->
       <div id="bloque-registrar-fin" class="hidden">
+        <label for="dt-fin">Fecha y hora de fin</label>
+        <input type="datetime-local" id="dt-fin">
         <button class="primary" id="btn-registrar-fin">
-          <span id="spin-registrar-fin" class="hidden"><span class="spinner"></span></span>Registrar hora de fin (ahora)
+          <span id="spin-registrar-fin" class="hidden"><span class="spinner"></span></span>Registrar hora de fin
         </button>
       </div>
     </div>
@@ -221,8 +225,10 @@
 
       <label for="sel-mec-nuevo">Mecánico</label>
       <select id="sel-mec-nuevo"></select>
+      <label for="dt-nuevo">Fecha y hora de inicio</label>
+      <input type="datetime-local" id="dt-nuevo">
       <button class="primary" id="btn-crear-registro">
-        <span id="spin-crear" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
+        <span id="spin-crear" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio
       </button>
     </div>
 
@@ -312,6 +318,21 @@ function formatearHora(d){
   const hh = String(d.getHours()).padStart(2,'0');
   const mi = String(d.getMinutes()).padStart(2,'0');
   return `${hh}:${mi}`;
+}
+
+// Convierte un Date al formato que espera <input type="datetime-local">
+// (YYYY-MM-DDTHH:mm, en hora local) y de vuelta a un Date.
+function aValorDatetimeLocal(d){
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function deValorDatetimeLocal(valor){
+  if (!valor) return new Date();
+  const [fecha, hora] = valor.split('T');
+  const [y, m, d] = fecha.split('-').map(Number);
+  const [hh, mi] = (hora || '00:00').split(':').map(Number);
+  const fechaHora = new Date(y, m - 1, d, hh, mi);
+  return isNaN(fechaHora.getTime()) ? new Date() : fechaHora;
 }
 
 /* ---------------- Google Identity Services (login) ---------------- */
@@ -564,8 +585,10 @@ function mostrarResultadoEncontrado(ws, col, fila, ot, hoja){
 
   if (!hini){
     bloqueInicio.classList.remove('hidden');
+    $('dt-inicio').value = aValorDatetimeLocal(new Date());
   } else if (!hfin){
     bloqueFin.classList.remove('hidden');
+    $('dt-fin').value = aValorDatetimeLocal(new Date());
   }
 }
 
@@ -586,6 +609,7 @@ function mostrarResultadoNuevo(ot, hoja){
   $('nueva-ot-num').textContent = 'OT ' + ot;
   $('nueva-ot-hoja').textContent = hoja;
   $('sel-mec-nuevo').value = '';
+  $('dt-nuevo').value = aValorDatetimeLocal(new Date());
 }
 
 /* ---------------- Flujo: registrar inicio / fin ---------------- */
@@ -598,7 +622,7 @@ $('btn-registrar-inicio').addEventListener('click', async () => {
   }
   await guardarCambio('spin-registrar-inicio', 'btn-registrar-inicio', () => {
     const ws = libroActual.Sheets[hojaActual];
-    const ahora = new Date();
+    const ahora = deValorDatetimeLocal($('dt-inicio').value);
     if (colActual.FEC_INI) ws[colActual.FEC_INI + filaEncontrada] = { t:'s', v: formatearFecha(ahora) };
     ws[colActual.HRA_INI + filaEncontrada]  = { t:'s', v: formatearHora(ahora) };
     ws[colActual.MECANICO + filaEncontrada] = { t:'s', v: mec };
@@ -608,7 +632,7 @@ $('btn-registrar-inicio').addEventListener('click', async () => {
 $('btn-registrar-fin').addEventListener('click', async () => {
   await guardarCambio('spin-registrar-fin', 'btn-registrar-fin', () => {
     const ws = libroActual.Sheets[hojaActual];
-    const ahora = new Date();
+    const ahora = deValorDatetimeLocal($('dt-fin').value);
     // La fecha fin se guarda aparte porque una OT puede empezar en un día
     // y terminar en otro (ej. atención que cruza la medianoche).
     if (colActual.FEC_FIN) ws[colActual.FEC_FIN + filaEncontrada] = { t:'s', v: formatearFecha(ahora) };
@@ -637,7 +661,7 @@ $('btn-crear-registro').addEventListener('click', async () => {
       return;
     }
     await guardarCambio('spin-crear', 'btn-crear-registro', () => {
-      const ahora = new Date();
+      const ahora = deValorDatetimeLocal($('dt-nuevo').value);
       ws[colActual.NRO_OT + fila]        = { t:'s', v: otBuscada };
       if (colActual.FEC_INI) ws[colActual.FEC_INI + fila] = { t:'s', v: formatearFecha(ahora) };
       ws[colActual.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
