@@ -428,9 +428,34 @@ function primeraFilaVacia(ws){
   return null; // hoja llena (muy improbable)
 }
 
+// Si alguien escribe la fecha/hora directamente en Excel (a mano), Excel la
+// guarda como un número de serie (ej. 0.291666 = 07:00), no como texto.
+// Estas dos funciones convierten ese número al mismo formato que usa la app.
+function serieExcelAFecha(serie){
+  const info = XLSX.SSF.parse_date_code(serie);
+  if (!info) return '';
+  const dd = String(info.d).padStart(2,'0');
+  const mm = String(info.m).padStart(2,'0');
+  return `${dd}/${mm}/${info.y}`;
+}
+function serieExcelAHora(serie){
+  const info = XLSX.SSF.parse_date_code(serie);
+  if (!info) return '';
+  const hh = String(info.H).padStart(2,'0');
+  const mi = String(info.M).padStart(2,'0');
+  return `${hh}:${mi}`;
+}
+
 function valorCelda(ws, col, fila){
   const c = ws[col + fila];
-  return c && c.v !== undefined && c.v !== null ? String(c.v).trim() : '';
+  if (!c || c.v === undefined || c.v === null || c.v === '') return '';
+  if (c.t === 'n'){
+    // Celda numérica: la persona la escribió a mano y Excel la convirtió
+    // automáticamente en fecha/hora. La pasamos al formato de la app.
+    if (col === COL.FECHA) return serieExcelAFecha(c.v);
+    if (col === COL.HRA_INI || col === COL.HRA_FIN) return serieExcelAHora(c.v);
+  }
+  return String(c.v).trim();
 }
 
 /* ---------------- Flujo: Buscar OT ---------------- */
@@ -569,22 +594,33 @@ $('btn-crear-registro').addEventListener('click', async () => {
     banner('banner-slot','warn','Selecciona Mecánico antes de registrar.');
     return;
   }
-  const ws = libroActual.Sheets[hojaActual];
-  const fila = primeraFilaVacia(ws);
-  if (!fila){
-    banner('banner-slot','err','La hoja ' + hojaActual + ' ya no tiene filas libres. Avisa a sistemas.');
-    return;
+  // Todo lo que sigue va en try/catch: si el estado de la app se perdió
+  // (ej. el navegador puso la pestaña en segundo plano y la recargó), que
+  // se muestre un aviso en vez de fallar en silencio.
+  try{
+    if (!libroActual || !hojaActual){
+      banner('banner-slot','err','Se perdió la conexión con el archivo. Toca "Buscar OT" de nuevo antes de registrar.');
+      return;
+    }
+    const ws = libroActual.Sheets[hojaActual];
+    const fila = primeraFilaVacia(ws);
+    if (!fila){
+      banner('banner-slot','err','La hoja ' + hojaActual + ' ya no tiene filas libres. Avisa a sistemas.');
+      return;
+    }
+    await guardarCambio('spin-crear', 'btn-crear-registro', () => {
+      const ahora = new Date();
+      ws[COL.NRO_OT + fila]        = { t:'s', v: otBuscada };
+      ws[COL.FECHA + fila]         = { t:'s', v: formatearFecha(ahora) };
+      ws[COL.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
+      ws[COL.MECANICO + fila]      = { t:'s', v: mec };
+      filaEncontrada = fila;
+    }, 'Registro creado y hora de inicio guardada.', () => {
+      mostrarResultadoEncontrado(ws, fila, otBuscada, hojaActual);
+    });
+  } catch(err){
+    manejarError(err, 'banner-slot');
   }
-  await guardarCambio('spin-crear', 'btn-crear-registro', () => {
-    const ahora = new Date();
-    ws[COL.NRO_OT + fila]        = { t:'s', v: otBuscada };
-    ws[COL.FECHA + fila]         = { t:'s', v: formatearFecha(ahora) };
-    ws[COL.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
-    ws[COL.MECANICO + fila]      = { t:'s', v: mec };
-    filaEncontrada = fila;
-  }, 'Registro creado y hora de inicio guardada.', () => {
-    mostrarResultadoEncontrado(ws, fila, otBuscada, hojaActual);
-  });
 });
 
 async function guardarCambio(spinId, btnId, aplicarCambios, mensajeExito, alTerminar){
