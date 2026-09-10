@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E4002B">
+<title>Control OT · Top Motors</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --tm-red:#E4002B;
+    --tm-red-dark:#B4001F;
+    --tm-dark:#1A1A2E;
+    --tm-gray:#6B7280;
+    --tm-gray-light:#9CA3AF;
+    --tm-bg:#F7F7F8;
+    --tm-border:#E5E7EB;
+    --tm-green:#0F8A45;
+    --tm-amber:#B45309;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--tm-bg);
+    color:var(--tm-dark);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding-bottom:32px;
+  }
+  header{
+    background:var(--tm-dark);
+    color:#fff;
+    padding:18px 20px calc(18px + env(safe-area-inset-top,0px));
+    padding-top:calc(18px + env(safe-area-inset-top,0px));
+    display:flex;
+    align-items:center;
+    gap:12px;
+    box-shadow:0 1px 0 rgba(0,0,0,.15);
+  }
+  header .brand-mark{
+    width:34px;height:34px;border-radius:8px;
+    background:var(--tm-red);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;letter-spacing:.5px;
+    flex:none;
+  }
+  header h1{font-size:16px;margin:0;font-weight:600;line-height:1.25;}
+  header p{margin:2px 0 0;font-size:12px;color:#C7C9D9;}
+  main{max-width:480px;margin:0 auto;padding:20px 16px 8px;}
+  .card{
+    background:#fff;
+    border:1px solid var(--tm-border);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card h2{font-size:14px;margin:0 0 14px;color:var(--tm-gray);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+  label{display:block;font-size:13px;color:var(--tm-gray);margin:0 0 6px;font-weight:500;}
+  input[type=text],input[type=number],select{
+    width:100%;
+    padding:12px 13px;
+    border:1px solid var(--tm-border);
+    border-radius:10px;
+    font-size:16px;
+    background:#fff;
+    color:var(--tm-dark);
+    margin-bottom:14px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  input:focus,select:focus{outline:2px solid var(--tm-red);outline-offset:1px;}
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%236B7280'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:32px;
+  }
+  button{
+    width:100%;
+    padding:13px 16px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:10px;
+    transition:opacity .15s;
+  }
+  button:disabled{opacity:.55;cursor:default;}
+  button.primary{background:var(--tm-red);color:#fff;}
+  button.primary:active{background:var(--tm-red-dark);}
+  button.secondary{background:#fff;color:var(--tm-dark);border:1px solid var(--tm-border);}
+  button.ghost{background:transparent;color:var(--tm-gray);font-weight:500;padding:8px;margin:0;}
+  .hidden{display:none !important;}
+  .status-line{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;color:var(--tm-gray);
+    margin:0 0 14px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--tm-gray-light);flex:none;}
+  .dot.ok{background:var(--tm-green);}
+  .dot.warn{background:var(--tm-amber);}
+  .dot.err{background:var(--tm-red);}
+  .banner{
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:13.5px;
+    margin-bottom:14px;
+    line-height:1.45;
+  }
+  .banner.err{background:#FDECEC;color:#8A1220;border:1px solid #F6C8CC;}
+  .banner.warn{background:#FFF6E8;color:#7A4A05;border:1px solid #F3DDA9;}
+  .banner.ok{background:#EAF7EF;color:#0B5D2E;border:1px solid #BFE6CE;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;}
+  .field{
+    border:1px solid var(--tm-border);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .field .k{font-size:11px;color:var(--tm-gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+  .field .v{font-size:15px;font-weight:600;color:var(--tm-dark);}
+  .field .v.empty{color:var(--tm-gray-light);font-weight:500;font-style:italic;}
+  .field .v.hl{color:var(--tm-red);}
+  .ot-title{font-size:20px;font-weight:700;margin:0 0 2px;}
+  .ot-sub{font-size:12.5px;color:var(--tm-gray);margin:0 0 16px;}
+  footer{max-width:480px;margin:0 auto;padding:8px 16px 24px;text-align:center;}
+  footer p{font-size:11px;color:var(--tm-gray-light);margin:2px 0;}
+  .spinner{
+    display:inline-block;width:15px;height:15px;
+    border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    vertical-align:-3px;
+    margin-right:8px;
+  }
+  button.secondary .spinner{border-color:rgba(26,26,46,.25);border-top-color:var(--tm-dark);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  a.link{color:var(--tm-red);text-decoration:none;font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-mark">TM</div>
+  <div>
+    <h1>Control OT</h1>
+    <p>Inicio / Fin de atención &middot; Top Motors</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- Pantalla de conexión -->
+  <section id="pantalla-login" class="card">
+    <h2>Conexión con Google Drive</h2>
+    <p style="font-size:13.5px;color:var(--tm-gray);margin:0 0 16px;line-height:1.5;">
+      La app lee y guarda los datos directamente en el archivo Excel de Google Drive.
+      Autoriza tu cuenta de Google para continuar.
+    </p>
+    <div id="login-banner-slot"></div>
+    <button class="primary" id="btn-conectar">Conectar con Google Drive</button>
+  </section>
+
+  <!-- Pantalla principal -->
+  <section id="pantalla-app" class="hidden">
+
+    <div class="card">
+      <div class="status-line">
+        <span class="dot ok"></span>
+        <span id="estado-conexion">Conectado a Google Drive</span>
+        <button class="ghost" id="btn-desconectar" style="width:auto;margin-left:auto;">Salir</button>
+      </div>
+      <div id="banner-hoja-slot"></div>
+      <label for="input-ot">Número de OT</label>
+      <input type="text" inputmode="numeric" id="input-ot" placeholder="Ej. 4521">
+      <button class="primary" id="btn-buscar">
+        <span id="btn-buscar-spinner" class="hidden"><span class="spinner"></span></span>Buscar OT
+      </button>
+    </div>
+
+    <div id="banner-slot"></div>
+
+    <!-- Resultado: OT encontrada -->
+    <div class="card hidden" id="card-resultado">
+      <p class="ot-title" id="res-ot-num">OT —</p>
+      <p class="ot-sub" id="res-ot-hoja">Hoja —</p>
+
+      <div class="result-grid">
+        <div class="field"><div class="k">Fecha</div><div class="v" id="res-fecha">—</div></div>
+        <div class="field"><div class="k">Hora inicio</div><div class="v" id="res-hini">—</div></div>
+        <div class="field"><div class="k">Hora fin</div><div class="v" id="res-hfin">—</div></div>
+        <div class="field"><div class="k">Mecánico</div><div class="v" id="res-mec">—</div></div>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <div class="k">Responsable</div><div class="v" id="res-resp">—</div>
+      </div>
+
+      <!-- Registrar inicio (OT existente sin hora de inicio) -->
+      <div id="bloque-registrar-inicio" class="hidden">
+        <label for="sel-mec-inicio">Mecánico</label>
+        <select id="sel-mec-inicio"></select>
+        <label for="sel-resp-inicio">Responsable</label>
+        <select id="sel-resp-inicio"></select>
+        <button class="primary" id="btn-registrar-inicio">
+          <span id="spin-registrar-inicio" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
+        </button>
+      </div>
+
+      <!-- Registrar fin (OT con inicio pero sin fin) -->
+      <div id="bloque-registrar-fin" class="hidden">
+        <button class="primary" id="btn-registrar-fin">
+          <span id="spin-registrar-fin" class="hidden"><span class="spinner"></span></span>Registrar hora de fin (ahora)
+        </button>
+      </div>
+    </div>
+
+    <!-- Resultado: OT no encontrada -->
+    <div class="card hidden" id="card-nueva">
+      <p class="ot-title" id="nueva-ot-num">OT —</p>
+      <p class="ot-sub">No se encontró esta OT en la hoja <b id="nueva-ot-hoja">—</b>. Puedes registrar el inicio de atención.</p>
+
+      <label for="sel-mec-nuevo">Mecánico</label>
+      <select id="sel-mec-nuevo"></select>
+      <label for="sel-resp-nuevo">Responsable</label>
+      <select id="sel-resp-nuevo"></select>
+      <button class="primary" id="btn-crear-registro">
+        <span id="spin-crear" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
+      </button>
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+  <p>Top Motors &middot; Control interno de atención de OTs</p>
+</footer>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ======================================================================
+   CONFIGURACIÓN — edita solo estas líneas
+   ====================================================================== */
+const CONFIG = {
+  // Pega aquí el "Client ID" que crees en Google Cloud Console
+  // (ver README.md, paso "Crear credenciales OAuth")
+  CLIENT_ID: 'PEGA_AQUI_TU_CLIENT_ID.apps.googleusercontent.com',
+
+  // ID del archivo Excel en Google Drive (ya viene completado)
+  FILE_ID: '1hP9pU_E0Y0gGOsPrOqLwQQu24YBTL9Rx',
+
+  // Permiso que se pide a Google (acceso a Drive para leer/escribir el archivo)
+  SCOPES: 'https://www.googleapis.com/auth/drive'
+};
+
+// Listas fijas para los campos Mecánico / Responsable
+const MECANICOS = ['DIEGO CASTELLANOS', 'JESUS LARA', 'ROLBER MENDOZA', 'ANGELO RAMIREZ'];
+const RESPONSABLES = MECANICOS;
+
+// Nombres de hoja por mes (deben coincidir EXACTO con el nombre de la pestaña en Excel)
+const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO',
+               'SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+// Estructura de la hoja (fila de encabezado y columnas)
+const FILA_ENCABEZADO = 6;   // fila donde están los títulos NRO / NRO OT / ...
+const FILA_INICIO_DATOS = 7; // primera fila de datos
+const FILA_FIN_DATOS = 481;  // última fila disponible en la plantilla
+const COL = { NRO:'A', NRO_OT:'B', HRA_INI:'C', HRA_FIN:'D', MECANICO:'E', RESPONSABLE:'F', FECHA:'G' };
+
+/* ====================================================================== */
+
+let accessToken = null;
+let tokenClient = null;
+let libroActual = null;      // workbook cargado en memoria
+let hojaActual = null;       // nombre de hoja (mes) en uso
+let filaEncontrada = null;   // número de fila de la OT encontrada (o null)
+let otBuscada = null;
+
+function $(id){ return document.getElementById(id); }
+
+function llenarSelect(sel, opciones){
+  sel.innerHTML = '<option value="">Selecciona…</option>' +
+    opciones.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+[['sel-mec-inicio',MECANICOS],['sel-resp-inicio',RESPONSABLES],
+ ['sel-mec-nuevo',MECANICOS],['sel-resp-nuevo',RESPONSABLES]].forEach(([id,opts]) => {
+  llenarSelect($(id), opts);
+});
+
+function banner(slotId, tipo, html){
+  const slot = $(slotId);
+  slot.innerHTML = `<div class="banner ${tipo}">${html}</div>`;
+}
+function limpiarBanner(slotId){ $(slotId).innerHTML = ''; }
+
+function nombreHojaDelMes(fecha){
+  return MESES[fecha.getMonth()];
+}
+function formatearFecha(d){
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+function formatearHora(d){
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${hh}:${mi}`;
+}
+
+/* ---------------- Google Identity Services (login) ---------------- */
+
+function initGIS(){
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CONFIG.CLIENT_ID,
+    scope: CONFIG.SCOPES,
+    callback: (resp) => {
+      $('btn-conectar').disabled = false;
+      $('btn-conectar').textContent = 'Conectar con Google Drive';
+      if (resp.error){
+        banner('login-banner-slot','err',
+          'No se pudo completar la conexión con Google (' + resp.error + '). Intenta de nuevo.');
+        return;
+      }
+      accessToken = resp.access_token;
+      mostrarPantallaApp();
+    }
+  });
+}
+
+function conectar(){
+  if (CONFIG.CLIENT_ID.indexOf('PEGA_AQUI') !== -1){
+    banner('login-banner-slot','err',
+      'Falta configurar el <b>Client ID</b> de Google en el archivo <code>index.html</code>. Revisa el README.');
+    return;
+  }
+  $('btn-conectar').disabled = true;
+  $('btn-conectar').textContent = 'Conectando…';
+  limpiarBanner('login-banner-slot');
+  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+}
+
+$('btn-conectar').addEventListener('click', conectar);
+$('btn-desconectar').addEventListener('click', () => {
+  if (accessToken){
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  libroActual = null;
+  $('pantalla-app').classList.add('hidden');
+  $('pantalla-login').classList.remove('hidden');
+});
+
+function mostrarPantallaApp(){
+  $('pantalla-login').classList.add('hidden');
+  $('pantalla-app').classList.remove('hidden');
+}
+
+/* ---------------- Drive: descargar / subir el Excel ---------------- */
+
+async function descargarLibro(){
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${CONFIG.FILE_ID}?alt=media`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok){
+    if (res.status === 401) throw new Error('SESION_EXPIRADA');
+    if (res.status === 403) throw new Error('SIN_PERMISO_LECTURA');
+    throw new Error('No se pudo descargar el archivo (código ' + res.status + ').');
+  }
+  const buf = await res.arrayBuffer();
+  // cellStyles/cellNF: conserva formatos de celda (ej. "01" en vez de "1") al reescribir el archivo
+  return XLSX.read(buf, { type:'array', cellStyles:true, cellNF:true });
+}
+
+async function subirLibro(wb){
+  const salida = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles:true });
+  const blob = new Blob([salida], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const res = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${CONFIG.FILE_ID}?uploadType=media`,
+    {
+      method:'PATCH',
+      headers:{
+        Authorization:`Bearer ${accessToken}`,
+        'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      },
+      body: blob
+    }
+  );
+  if (!res.ok){
+    if (res.status === 401) throw new Error('SESION_EXPIRADA');
+    if (res.status === 403) throw new Error('SIN_PERMISO_ESCRITURA');
+    throw new Error('No se pudo guardar el archivo (código ' + res.status + ').');
+  }
+}
+
+/* ---------------- Lógica de hoja / columnas ---------------- */
+
+// Migración silenciosa: si la hoja no tiene columna FECHA (G6), se agrega.
+// No mueve ni borra ninguna columna existente.
+function asegurarColumnaFecha(ws){
+  const celda = COL.FECHA + FILA_ENCABEZADO;
+  const actual = ws[celda];
+  if (!actual || String(actual.v).trim().toUpperCase() !== 'FECHA'){
+    ws[celda] = { t:'s', v:'FECHA' };
+    // Ampliar el rango de la hoja si hiciera falta
+    const rango = XLSX.utils.decode_range(ws['!ref']);
+    const colFecha = XLSX.utils.decode_col(COL.FECHA);
+    if (rango.e.c < colFecha){
+      rango.e.c = colFecha;
+      ws['!ref'] = XLSX.utils.encode_range(rango);
+    }
+  }
+}
+
+function buscarFilaPorOT(ws, ot){
+  for (let f = FILA_INICIO_DATOS; f <= FILA_FIN_DATOS; f++){
+    const celda = ws[COL.NRO_OT + f];
+    if (celda && String(celda.v).trim() === String(ot).trim()){
+      return f;
+    }
+  }
+  return null;
+}
+
+function primeraFilaVacia(ws){
+  for (let f = FILA_INICIO_DATOS; f <= FILA_FIN_DATOS; f++){
+    const celda = ws[COL.NRO_OT + f];
+    if (!celda || String(celda.v).trim() === ''){
+      return f;
+    }
+  }
+  return null; // hoja llena (muy improbable)
+}
+
+function valorCelda(ws, col, fila){
+  const c = ws[col + fila];
+  return c && c.v !== undefined && c.v !== null ? String(c.v).trim() : '';
+}
+
+/* ---------------- Flujo: Buscar OT ---------------- */
+
+$('btn-buscar').addEventListener('click', buscarOT);
+$('input-ot').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarOT(); });
+
+async function buscarOT(){
+  const ot = $('input-ot').value.trim();
+  limpiarBanner('banner-slot');
+  $('card-resultado').classList.add('hidden');
+  $('card-nueva').classList.add('hidden');
+
+  if (!ot){
+    banner('banner-slot','warn','Ingresa un número de OT para buscar.');
+    return;
+  }
+
+  const spin = $('btn-buscar-spinner');
+  spin.classList.remove('hidden');
+  $('btn-buscar').disabled = true;
+
+  try{
+    libroActual = await descargarLibro();
+
+    let hoja = nombreHojaDelMes(new Date());
+    limpiarBanner('banner-hoja-slot');
+    if (!libroActual.SheetNames.includes(hoja)){
+      // El mes actual no existe como hoja: se avisa y se deja elegir manualmente
+      const disponibles = libroActual.SheetNames;
+      banner('banner-hoja-slot','warn',
+        `No existe una hoja "${hoja}" para el mes actual. Hojas disponibles: ` +
+        disponibles.map(h => `<b>${h}</b>`).join(', ') +
+        `. Se usará <b>${disponibles[0]}</b>. Avisa a sistemas si falta crear la hoja del mes.`);
+      hoja = disponibles[0];
+    }
+    hojaActual = hoja;
+
+    const ws = libroActual.Sheets[hoja];
+    asegurarColumnaFecha(ws);
+
+    otBuscada = ot;
+    const fila = buscarFilaPorOT(ws, ot);
+    filaEncontrada = fila;
+
+    if (fila){
+      mostrarResultadoEncontrado(ws, fila, ot, hoja);
+    } else {
+      mostrarResultadoNuevo(ot, hoja);
+    }
+
+  } catch(err){
+    manejarError(err, 'banner-slot');
+  } finally {
+    spin.classList.add('hidden');
+    $('btn-buscar').disabled = false;
+  }
+}
+
+function mostrarResultadoEncontrado(ws, fila, ot, hoja){
+  $('card-nueva').classList.add('hidden');
+  $('card-resultado').classList.remove('hidden');
+
+  $('res-ot-num').textContent = 'OT ' + ot;
+  $('res-ot-hoja').textContent = 'Hoja ' + hoja + ' · fila ' + fila;
+
+  const fecha = valorCelda(ws, COL.FECHA, fila);
+  const hini  = valorCelda(ws, COL.HRA_INI, fila);
+  const hfin  = valorCelda(ws, COL.HRA_FIN, fila);
+  const mec   = valorCelda(ws, COL.MECANICO, fila);
+  const resp  = valorCelda(ws, COL.RESPONSABLE, fila);
+
+  setCampo('res-fecha', fecha);
+  setCampo('res-hini', hini, true);
+  setCampo('res-hfin', hfin, true);
+  setCampo('res-mec', mec);
+  setCampo('res-resp', resp);
+
+  const bloqueInicio = $('bloque-registrar-inicio');
+  const bloqueFin = $('bloque-registrar-fin');
+  bloqueInicio.classList.add('hidden');
+  bloqueFin.classList.add('hidden');
+
+  if (!hini){
+    bloqueInicio.classList.remove('hidden');
+  } else if (!hfin){
+    bloqueFin.classList.remove('hidden');
+  }
+}
+
+function setCampo(id, valor, resaltar){
+  const el = $(id);
+  if (valor){
+    el.textContent = valor;
+    el.className = 'v' + (resaltar ? ' hl' : '');
+  } else {
+    el.textContent = 'Sin registrar';
+    el.className = 'v empty';
+  }
+}
+
+function mostrarResultadoNuevo(ot, hoja){
+  $('card-resultado').classList.add('hidden');
+  $('card-nueva').classList.remove('hidden');
+  $('nueva-ot-num').textContent = 'OT ' + ot;
+  $('nueva-ot-hoja').textContent = hoja;
+  $('sel-mec-nuevo').value = '';
+  $('sel-resp-nuevo').value = '';
+}
+
+/* ---------------- Flujo: registrar inicio / fin ---------------- */
+
+$('btn-registrar-inicio').addEventListener('click', async () => {
+  const mec = $('sel-mec-inicio').value;
+  const resp = $('sel-resp-inicio').value;
+  if (!mec || !resp){
+    banner('banner-slot','warn','Selecciona Mecánico y Responsable antes de registrar la hora de inicio.');
+    return;
+  }
+  await guardarCambio('spin-registrar-inicio', 'btn-registrar-inicio', () => {
+    const ws = libroActual.Sheets[hojaActual];
+    const ahora = new Date();
+    ws[COL.FECHA + filaEncontrada]      = { t:'s', v: formatearFecha(ahora) };
+    ws[COL.HRA_INI + filaEncontrada]    = { t:'s', v: formatearHora(ahora) };
+    ws[COL.MECANICO + filaEncontrada]   = { t:'s', v: mec };
+    ws[COL.RESPONSABLE + filaEncontrada]= { t:'s', v: resp };
+  }, 'Hora de inicio registrada.');
+});
+
+$('btn-registrar-fin').addEventListener('click', async () => {
+  await guardarCambio('spin-registrar-fin', 'btn-registrar-fin', () => {
+    const ws = libroActual.Sheets[hojaActual];
+    const ahora = new Date();
+    ws[COL.HRA_FIN + filaEncontrada] = { t:'s', v: formatearHora(ahora) };
+  }, 'Hora de fin registrada.');
+});
+
+$('btn-crear-registro').addEventListener('click', async () => {
+  const mec = $('sel-mec-nuevo').value;
+  const resp = $('sel-resp-nuevo').value;
+  if (!mec || !resp){
+    banner('banner-slot','warn','Selecciona Mecánico y Responsable antes de registrar.');
+    return;
+  }
+  const ws = libroActual.Sheets[hojaActual];
+  const fila = primeraFilaVacia(ws);
+  if (!fila){
+    banner('banner-slot','err','La hoja ' + hojaActual + ' ya no tiene filas libres. Avisa a sistemas.');
+    return;
+  }
+  await guardarCambio('spin-crear', 'btn-crear-registro', () => {
+    const ahora = new Date();
+    ws[COL.NRO_OT + fila]        = { t:'s', v: otBuscada };
+    ws[COL.FECHA + fila]         = { t:'s', v: formatearFecha(ahora) };
+    ws[COL.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
+    ws[COL.MECANICO + fila]      = { t:'s', v: mec };
+    ws[COL.RESPONSABLE + fila]   = { t:'s', v: resp };
+    filaEncontrada = fila;
+  }, 'Registro creado y hora de inicio guardada.', () => {
+    mostrarResultadoEncontrado(ws, fila, otBuscada, hojaActual);
+  });
+});
+
+async function guardarCambio(spinId, btnId, aplicarCambios, mensajeExito, alTerminar){
+  limpiarBanner('banner-slot');
+  $(spinId).classList.remove('hidden');
+  $(btnId).disabled = true;
+  try{
+    aplicarCambios();
+    await subirLibro(libroActual);
+    banner('banner-slot','ok', mensajeExito);
+    if (alTerminar) alTerminar();
+    else {
+      const ws = libroActual.Sheets[hojaActual];
+      mostrarResultadoEncontrado(ws, filaEncontrada, otBuscada, hojaActual);
+    }
+  } catch(err){
+    manejarError(err, 'banner-slot');
+  } finally {
+    $(spinId).classList.add('hidden');
+    $(btnId).disabled = false;
+  }
+}
+
+function manejarError(err, slotId){
+  const msg = err && err.message ? err.message : String(err);
+  if (msg === 'SESION_EXPIRADA'){
+    banner(slotId,'err','Tu sesión de Google expiró. Toca "Salir" y vuelve a conectar.');
+  } else if (msg === 'SIN_PERMISO_LECTURA' || msg === 'SIN_PERMISO_ESCRITURA'){
+    banner(slotId,'err',
+      'Tu cuenta de Google no tiene permiso de <b>edición</b> sobre el archivo en Drive. ' +
+      'Pide que te compartan el archivo como "Editor".');
+  } else {
+    banner(slotId,'err', msg);
+  }
+}
+
+/* ---------------- Arranque ---------------- */
+window.addEventListener('load', () => {
+  // google.accounts puede tardar unos milisegundos en cargar (script async)
+  const esperar = setInterval(() => {
+    if (window.google && google.accounts && google.accounts.oauth2){
+      clearInterval(esperar);
+      initGIS();
+    }
+  }, 100);
+});
+
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
