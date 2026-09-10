@@ -195,9 +195,6 @@
         <div class="field"><div class="k">Hora fin</div><div class="v" id="res-hfin">—</div></div>
         <div class="field"><div class="k">Mecánico</div><div class="v" id="res-mec">—</div></div>
       </div>
-      <div class="field" style="margin-bottom:16px;">
-        <div class="k">Responsable</div><div class="v" id="res-resp">—</div>
-      </div>
 
       <!-- Registrar inicio (OT existente sin hora de inicio) -->
       <div id="bloque-registrar-inicio" class="hidden">
@@ -504,13 +501,11 @@ function mostrarResultadoEncontrado(ws, fila, ot, hoja){
   const hini  = valorCelda(ws, COL.HRA_INI, fila);
   const hfin  = valorCelda(ws, COL.HRA_FIN, fila);
   const mec   = valorCelda(ws, COL.MECANICO, fila);
-  const resp  = valorCelda(ws, COL.RESPONSABLE, fila);
 
   setCampo('res-fecha', fecha);
   setCampo('res-hini', hini, true);
   setCampo('res-hfin', hfin, true);
   setCampo('res-mec', mec);
-  setCampo('res-resp', resp);
 
   const bloqueInicio = $('bloque-registrar-inicio');
   const bloqueFin = $('bloque-registrar-fin');
