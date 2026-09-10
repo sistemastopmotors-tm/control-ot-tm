@@ -203,8 +203,6 @@
       <div id="bloque-registrar-inicio" class="hidden">
         <label for="sel-mec-inicio">Mecánico</label>
         <select id="sel-mec-inicio"></select>
-        <label for="sel-resp-inicio">Responsable</label>
-        <select id="sel-resp-inicio"></select>
         <button class="primary" id="btn-registrar-inicio">
           <span id="spin-registrar-inicio" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
         </button>
@@ -225,8 +223,6 @@
 
       <label for="sel-mec-nuevo">Mecánico</label>
       <select id="sel-mec-nuevo"></select>
-      <label for="sel-resp-nuevo">Responsable</label>
-      <select id="sel-resp-nuevo"></select>
       <button class="primary" id="btn-crear-registro">
         <span id="spin-crear" class="hidden"><span class="spinner"></span></span>Registrar hora de inicio (ahora)
       </button>
@@ -259,8 +255,7 @@ const CONFIG = {
 };
 
 // Listas fijas para los campos Mecánico / Responsable
-const MECANICOS = ['DIEGO CASTELLANOS', 'JESUS LARA', 'ROLBER MENDOZA', 'ANGELO RAMIREZ'];
-const RESPONSABLES = MECANICOS;
+const MECANICOS = ['DIEGO CASTELLANOS', 'JESUS LARA', 'ROLBER MENDOZA', 'ANGELO RAMIREZ', 'JHONNY RODAS'];
 
 // Nombres de hoja por mes (deben coincidir EXACTO con el nombre de la pestaña en Excel)
 const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO',
@@ -287,8 +282,7 @@ function llenarSelect(sel, opciones){
   sel.innerHTML = '<option value="">Selecciona…</option>' +
     opciones.map(o => `<option value="${o}">${o}</option>`).join('');
 }
-[['sel-mec-inicio',MECANICOS],['sel-resp-inicio',RESPONSABLES],
- ['sel-mec-nuevo',MECANICOS],['sel-resp-nuevo',RESPONSABLES]].forEach(([id,opts]) => {
+[['sel-mec-inicio',MECANICOS],['sel-mec-nuevo',MECANICOS]].forEach(([id,opts]) => {
   llenarSelect($(id), opts);
 });
 
@@ -547,16 +541,14 @@ function mostrarResultadoNuevo(ot, hoja){
   $('nueva-ot-num').textContent = 'OT ' + ot;
   $('nueva-ot-hoja').textContent = hoja;
   $('sel-mec-nuevo').value = '';
-  $('sel-resp-nuevo').value = '';
 }
 
 /* ---------------- Flujo: registrar inicio / fin ---------------- */
 
 $('btn-registrar-inicio').addEventListener('click', async () => {
   const mec = $('sel-mec-inicio').value;
-  const resp = $('sel-resp-inicio').value;
-  if (!mec || !resp){
-    banner('banner-slot','warn','Selecciona Mecánico y Responsable antes de registrar la hora de inicio.');
+  if (!mec){
+    banner('banner-slot','warn','Selecciona Mecánico antes de registrar la hora de inicio.');
     return;
   }
   await guardarCambio('spin-registrar-inicio', 'btn-registrar-inicio', () => {
@@ -565,7 +557,6 @@ $('btn-registrar-inicio').addEventListener('click', async () => {
     ws[COL.FECHA + filaEncontrada]      = { t:'s', v: formatearFecha(ahora) };
     ws[COL.HRA_INI + filaEncontrada]    = { t:'s', v: formatearHora(ahora) };
     ws[COL.MECANICO + filaEncontrada]   = { t:'s', v: mec };
-    ws[COL.RESPONSABLE + filaEncontrada]= { t:'s', v: resp };
   }, 'Hora de inicio registrada.');
 });
 
@@ -579,9 +570,8 @@ $('btn-registrar-fin').addEventListener('click', async () => {
 
 $('btn-crear-registro').addEventListener('click', async () => {
   const mec = $('sel-mec-nuevo').value;
-  const resp = $('sel-resp-nuevo').value;
-  if (!mec || !resp){
-    banner('banner-slot','warn','Selecciona Mecánico y Responsable antes de registrar.');
+  if (!mec){
+    banner('banner-slot','warn','Selecciona Mecánico antes de registrar.');
     return;
   }
   const ws = libroActual.Sheets[hojaActual];
@@ -596,7 +586,6 @@ $('btn-crear-registro').addEventListener('click', async () => {
     ws[COL.FECHA + fila]         = { t:'s', v: formatearFecha(ahora) };
     ws[COL.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
     ws[COL.MECANICO + fila]      = { t:'s', v: mec };
-    ws[COL.RESPONSABLE + fila]   = { t:'s', v: resp };
     filaEncontrada = fila;
   }, 'Registro creado y hora de inicio guardada.', () => {
     mostrarResultadoEncontrado(ws, fila, otBuscada, hojaActual);
