@@ -190,10 +190,11 @@
       <p class="ot-sub" id="res-ot-hoja">Hoja —</p>
 
       <div class="result-grid">
-        <div class="field"><div class="k">Fecha</div><div class="v" id="res-fecha">—</div></div>
+        <div class="field"><div class="k">Fecha inicio</div><div class="v" id="res-fecha-ini">—</div></div>
         <div class="field"><div class="k">Hora inicio</div><div class="v" id="res-hini">—</div></div>
+        <div class="field"><div class="k">Fecha fin</div><div class="v" id="res-fecha-fin">—</div></div>
         <div class="field"><div class="k">Hora fin</div><div class="v" id="res-hfin">—</div></div>
-        <div class="field"><div class="k">Mecánico</div><div class="v" id="res-mec">—</div></div>
+        <div class="field" style="grid-column:1 / span 2;"><div class="k">Mecánico</div><div class="v" id="res-mec">—</div></div>
       </div>
 
       <!-- Registrar inicio (OT existente sin hora de inicio) -->
@@ -258,11 +259,20 @@ const MECANICOS = ['DIEGO CASTELLANOS', 'JESUS LARA', 'ROLBER MENDOZA', 'ANGELO 
 const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO',
                'SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 
-// Estructura de la hoja (fila de encabezado y columnas)
+// Estructura de la hoja: solo se fija la fila de encabezado. Las columnas
+// se detectan solas leyendo los títulos de esa fila (ver detectarColumnas),
+// porque no todas las hojas/meses tienen el mismo orden de columnas
+// (algunos meses todavía no separan Fecha Inicio / Fecha Fin).
 const FILA_ENCABEZADO = 6;   // fila donde están los títulos NRO / NRO OT / ...
 const FILA_INICIO_DATOS = 7; // primera fila de datos
 const FILA_FIN_DATOS = 481;  // última fila disponible en la plantilla
-const COL = { NRO:'A', NRO_OT:'B', HRA_INI:'C', HRA_FIN:'D', MECANICO:'E', RESPONSABLE:'F', FECHA:'G' };
+
+// Texto del título (en la fila de encabezado) -> nombre interno de columna.
+const TITULOS_COLUMNA = {
+  'NRO': 'NRO', 'NRO OT': 'NRO_OT', 'FEC INI': 'FEC_INI', 'HRA INI': 'HRA_INI',
+  'FEC FIN': 'FEC_FIN', 'HRA FIN': 'HRA_FIN', 'MECANICO': 'MECANICO',
+  'RESPONSABLE': 'RESPONSABLE', 'FECHA': 'FEC_INI'
+};
 
 /* ====================================================================== */
 
@@ -270,6 +280,7 @@ let accessToken = null;
 let tokenClient = null;
 let libroActual = null;      // workbook cargado en memoria
 let hojaActual = null;       // nombre de hoja (mes) en uso
+let colActual = null;        // mapa de columnas detectadas para hojaActual
 let filaEncontrada = null;   // número de fila de la OT encontrada (o null)
 let otBuscada = null;
 
@@ -391,26 +402,27 @@ async function subirLibro(wb){
 
 /* ---------------- Lógica de hoja / columnas ---------------- */
 
-// Migración silenciosa: si la hoja no tiene columna FECHA (G6), se agrega.
-// No mueve ni borra ninguna columna existente.
-function asegurarColumnaFecha(ws){
-  const celda = COL.FECHA + FILA_ENCABEZADO;
-  const actual = ws[celda];
-  if (!actual || String(actual.v).trim().toUpperCase() !== 'FECHA'){
-    ws[celda] = { t:'s', v:'FECHA' };
-    // Ampliar el rango de la hoja si hiciera falta
-    const rango = XLSX.utils.decode_range(ws['!ref']);
-    const colFecha = XLSX.utils.decode_col(COL.FECHA);
-    if (rango.e.c < colFecha){
-      rango.e.c = colFecha;
-      ws['!ref'] = XLSX.utils.encode_range(rango);
+// Lee la fila de encabezado y devuelve en qué columna (letra) está cada
+// título conocido. Así la app funciona aunque el orden de columnas cambie
+// de una hoja/mes a otra, sin tener que tocar el código cada vez.
+function detectarColumnas(ws){
+  const mapa = {};
+  const rango = XLSX.utils.decode_range(ws['!ref'] || ('A1:A' + FILA_FIN_DATOS));
+  for (let c = rango.s.c; c <= rango.e.c; c++){
+    const colLetra = XLSX.utils.encode_col(c);
+    const celda = ws[colLetra + FILA_ENCABEZADO];
+    if (celda && celda.v !== undefined && celda.v !== null){
+      const texto = String(celda.v).trim().toUpperCase();
+      const clave = TITULOS_COLUMNA[texto];
+      if (clave && !mapa[clave]) mapa[clave] = colLetra;
     }
   }
+  return mapa;
 }
 
-function buscarFilaPorOT(ws, ot){
+function buscarFilaPorOT(ws, col, ot){
   for (let f = FILA_INICIO_DATOS; f <= FILA_FIN_DATOS; f++){
-    const celda = ws[COL.NRO_OT + f];
+    const celda = ws[col.NRO_OT + f];
     if (celda && String(celda.v).trim() === String(ot).trim()){
       return f;
     }
@@ -418,9 +430,9 @@ function buscarFilaPorOT(ws, ot){
   return null;
 }
 
-function primeraFilaVacia(ws){
+function primeraFilaVacia(ws, col){
   for (let f = FILA_INICIO_DATOS; f <= FILA_FIN_DATOS; f++){
-    const celda = ws[COL.NRO_OT + f];
+    const celda = ws[col.NRO_OT + f];
     // Las filas "vacías" de la plantilla tienen una celda con formato pero
     // sin valor (tipo 'z'), no una celda inexistente: por eso se revisa
     // celda.v en vez de solo la existencia de la celda.
@@ -449,14 +461,17 @@ function serieExcelAHora(serie){
   return `${hh}:${mi}`;
 }
 
-function valorCelda(ws, col, fila){
-  const c = ws[col + fila];
+function valorCelda(ws, colLetra, fila){
+  if (!colLetra) return '';
+  const c = ws[colLetra + fila];
   if (!c || c.v === undefined || c.v === null || c.v === '') return '';
   if (c.t === 'n'){
     // Celda numérica: la persona la escribió a mano y Excel la convirtió
     // automáticamente en fecha/hora. La pasamos al formato de la app.
-    if (col === COL.FECHA) return serieExcelAFecha(c.v);
-    if (col === COL.HRA_INI || col === COL.HRA_FIN) return serieExcelAHora(c.v);
+    // Un número de serie de Excel menor a 1 es una hora (fracción del día);
+    // uno mayor o igual a 1 es una fecha completa.
+    if (c.v < 1) return serieExcelAHora(c.v);
+    return serieExcelAFecha(c.v);
   }
   return String(c.v).trim();
 }
@@ -498,14 +513,19 @@ async function buscarOT(){
     hojaActual = hoja;
 
     const ws = libroActual.Sheets[hoja];
-    asegurarColumnaFecha(ws);
+    colActual = detectarColumnas(ws);
+    if (!colActual.NRO_OT || !colActual.MECANICO){
+      banner('banner-slot','err',
+        'La hoja "' + hoja + '" no tiene las columnas esperadas ("NRO OT" / "MECANICO") en la fila ' + FILA_ENCABEZADO + '. Avisa a sistemas.');
+      return;
+    }
 
     otBuscada = ot;
-    const fila = buscarFilaPorOT(ws, ot);
+    const fila = buscarFilaPorOT(ws, colActual, ot);
     filaEncontrada = fila;
 
     if (fila){
-      mostrarResultadoEncontrado(ws, fila, ot, hoja);
+      mostrarResultadoEncontrado(ws, colActual, fila, ot, hoja);
     } else {
       mostrarResultadoNuevo(ot, hoja);
     }
@@ -518,20 +538,22 @@ async function buscarOT(){
   }
 }
 
-function mostrarResultadoEncontrado(ws, fila, ot, hoja){
+function mostrarResultadoEncontrado(ws, col, fila, ot, hoja){
   $('card-nueva').classList.add('hidden');
   $('card-resultado').classList.remove('hidden');
 
   $('res-ot-num').textContent = 'OT ' + ot;
   $('res-ot-hoja').textContent = 'Hoja ' + hoja + ' · fila ' + fila;
 
-  const fecha = valorCelda(ws, COL.FECHA, fila);
-  const hini  = valorCelda(ws, COL.HRA_INI, fila);
-  const hfin  = valorCelda(ws, COL.HRA_FIN, fila);
-  const mec   = valorCelda(ws, COL.MECANICO, fila);
+  const fechaIni = valorCelda(ws, col.FEC_INI, fila);
+  const hini     = valorCelda(ws, col.HRA_INI, fila);
+  const fechaFin = valorCelda(ws, col.FEC_FIN, fila);
+  const hfin     = valorCelda(ws, col.HRA_FIN, fila);
+  const mec      = valorCelda(ws, col.MECANICO, fila);
 
-  setCampo('res-fecha', fecha);
+  setCampo('res-fecha-ini', fechaIni);
   setCampo('res-hini', hini, true);
+  setCampo('res-fecha-fin', fechaFin);
   setCampo('res-hfin', hfin, true);
   setCampo('res-mec', mec);
 
@@ -577,9 +599,9 @@ $('btn-registrar-inicio').addEventListener('click', async () => {
   await guardarCambio('spin-registrar-inicio', 'btn-registrar-inicio', () => {
     const ws = libroActual.Sheets[hojaActual];
     const ahora = new Date();
-    ws[COL.FECHA + filaEncontrada]      = { t:'s', v: formatearFecha(ahora) };
-    ws[COL.HRA_INI + filaEncontrada]    = { t:'s', v: formatearHora(ahora) };
-    ws[COL.MECANICO + filaEncontrada]   = { t:'s', v: mec };
+    if (colActual.FEC_INI) ws[colActual.FEC_INI + filaEncontrada] = { t:'s', v: formatearFecha(ahora) };
+    ws[colActual.HRA_INI + filaEncontrada]  = { t:'s', v: formatearHora(ahora) };
+    ws[colActual.MECANICO + filaEncontrada] = { t:'s', v: mec };
   }, 'Hora de inicio registrada.');
 });
 
@@ -587,7 +609,10 @@ $('btn-registrar-fin').addEventListener('click', async () => {
   await guardarCambio('spin-registrar-fin', 'btn-registrar-fin', () => {
     const ws = libroActual.Sheets[hojaActual];
     const ahora = new Date();
-    ws[COL.HRA_FIN + filaEncontrada] = { t:'s', v: formatearHora(ahora) };
+    // La fecha fin se guarda aparte porque una OT puede empezar en un día
+    // y terminar en otro (ej. atención que cruza la medianoche).
+    if (colActual.FEC_FIN) ws[colActual.FEC_FIN + filaEncontrada] = { t:'s', v: formatearFecha(ahora) };
+    ws[colActual.HRA_FIN + filaEncontrada] = { t:'s', v: formatearHora(ahora) };
   }, 'Hora de fin registrada.');
 });
 
@@ -601,25 +626,25 @@ $('btn-crear-registro').addEventListener('click', async () => {
   // (ej. el navegador puso la pestaña en segundo plano y la recargó), que
   // se muestre un aviso en vez de fallar en silencio.
   try{
-    if (!libroActual || !hojaActual){
+    if (!libroActual || !hojaActual || !colActual){
       banner('banner-slot','err','Se perdió la conexión con el archivo. Toca "Buscar OT" de nuevo antes de registrar.');
       return;
     }
     const ws = libroActual.Sheets[hojaActual];
-    const fila = primeraFilaVacia(ws);
+    const fila = primeraFilaVacia(ws, colActual);
     if (!fila){
       banner('banner-slot','err','La hoja ' + hojaActual + ' ya no tiene filas libres. Avisa a sistemas.');
       return;
     }
     await guardarCambio('spin-crear', 'btn-crear-registro', () => {
       const ahora = new Date();
-      ws[COL.NRO_OT + fila]        = { t:'s', v: otBuscada };
-      ws[COL.FECHA + fila]         = { t:'s', v: formatearFecha(ahora) };
-      ws[COL.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
-      ws[COL.MECANICO + fila]      = { t:'s', v: mec };
+      ws[colActual.NRO_OT + fila]        = { t:'s', v: otBuscada };
+      if (colActual.FEC_INI) ws[colActual.FEC_INI + fila] = { t:'s', v: formatearFecha(ahora) };
+      ws[colActual.HRA_INI + fila]       = { t:'s', v: formatearHora(ahora) };
+      ws[colActual.MECANICO + fila]      = { t:'s', v: mec };
       filaEncontrada = fila;
     }, 'Registro creado y hora de inicio guardada.', () => {
-      mostrarResultadoEncontrado(ws, fila, otBuscada, hojaActual);
+      mostrarResultadoEncontrado(ws, colActual, fila, otBuscada, hojaActual);
     });
   } catch(err){
     manejarError(err, 'banner-slot');
@@ -637,7 +662,7 @@ async function guardarCambio(spinId, btnId, aplicarCambios, mensajeExito, alTerm
     if (alTerminar) alTerminar();
     else {
       const ws = libroActual.Sheets[hojaActual];
-      mostrarResultadoEncontrado(ws, filaEncontrada, otBuscada, hojaActual);
+      mostrarResultadoEncontrado(ws, colActual, filaEncontrada, otBuscada, hojaActual);
     }
   } catch(err){
     manejarError(err, 'banner-slot');
